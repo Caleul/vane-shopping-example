@@ -3,6 +3,20 @@ on: [push, pull_request]
 permissions:
   contents: read
 jobs:
+  docker-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check, HTTP E2E, SIGKILL recovery and volume recovery in Docker
+        run: bash scripts/test-docker.sh
+      - name: Preserve Docker E2E evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-e2e-${{ github.sha }}
+          path: artifacts/e2e/
+          retention-days: 14
   shopping:
     runs-on: ubuntu-latest
     services:

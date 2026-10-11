@@ -15,7 +15,8 @@
     "demo": "node scripts/demo.mjs",
     "test": "node --env-file-if-exists=.env --test test/*.test.mjs",
     "test:unit": "node --test test/pricing.test.mjs",
-    "check": "npm run verify:vendor && npm run typecheck && npm run build && npm test"
+    "check": "npm run verify:vendor && npm run typecheck && npm run build && npm test",
+    "test:docker": "bash scripts/test-docker.sh"
   },
   "dependencies": {
     "@lilka/vane": "file:vendor/lilka-vane-0.1.0-rc.1.tgz",

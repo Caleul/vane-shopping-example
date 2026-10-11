@@ -1,0 +1,54 @@
+# Disposable project: no host ports and no access to development volumes.
+services:
+  postgres:
+    image: postgres:16.15
+    environment:
+      POSTGRES_USER: shopping
+      POSTGRES_PASSWORD: shopping
+      POSTGRES_DB: shopping
+    volumes:
+      - test-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shopping -d shopping"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  api:
+    image: ${COMPOSE_PROJECT_NAME}-app
+    build: .
+    environment:
+      DATABASE_URL: postgresql://shopping:shopping@postgres:5432/shopping
+      VANE_NAMESPACE: shopping
+      HOST: 0.0.0.0
+      PORT: 3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+  checks:
+    image: ${COMPOSE_PROJECT_NAME}-app
+    profiles: [tests]
+    environment:
+      DATABASE_URL: postgresql://shopping:shopping@postgres:5432/shopping
+    command: ["npm", "run", "check"]
+  e2e:
+    image: ${COMPOSE_PROJECT_NAME}-app
+    profiles: [tests]
+    user: "${E2E_UID:-1000}:${E2E_GID:-1000}"
+    environment:
+      API_URL: http://api:3000
+      E2E_PHASE: ${E2E_PHASE:-before}
+      E2E_EVIDENCE: /evidence
+    volumes:
+      - ${E2E_OUTPUT:-./artifacts/e2e}:/evidence
+    command:
+      - sh
+      - -c
+      - node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=tap --test-reporter-destination=/evidence/$${E2E_PHASE}.tap test/docker.e2e.mjs
+volumes:
+  test-data:

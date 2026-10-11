@@ -9,20 +9,17 @@ O registro guarda os produtos, as quantidades e os preços daquele momento.
 
 ## Executar
 
-Requisitos: Node.js **24.19.0** e Docker Compose, ou PostgreSQL **16** já disponível.
+Requisito: Docker com Compose v2. Node.js **24.19.0** e PostgreSQL **16.15**
+rodam nos containers. Não precisa instalar Node, PostgreSQL ou LocalStack no host.
 
 ```sh
-npm ci --ignore-scripts
-cp .env.example .env
-docker compose up -d --wait
-npm run migrate
-npm start
+docker compose up --build -d --wait
 ```
 
 Em outro terminal:
 
 ```sh
-npm run demo
+docker compose exec api npm run demo
 ```
 
 A demonstração cria os cadastros, salva um carrinho e registra uma compra.
@@ -39,9 +36,23 @@ Compra registrada: <id> — R$ 15,00
 próprios. Os mercados de execuções anteriores não oferecem esses produtos e
 aparecem como incompletos para o novo carrinho.
 
-O serviço escuta em `http://127.0.0.1:3000`. Para outro PostgreSQL, configure
-`DATABASE_URL` no `.env`. `VANE_NAMESPACE` escolhe o schema e `PORT` escolhe a porta.
-`docker compose stop` preserva os dados no volume.
+O serviço fica disponível em `http://127.0.0.1:3000`; a migração inicial é
+aplicada ao iniciar o container. `docker compose stop` preserva os dados no volume.
+`docker compose down` remove os containers e também preserva os dados.
+
+Para executar Node no host em vez do container da API:
+
+```sh
+npm ci --ignore-scripts
+cp .env.example .env
+docker compose up -d --wait postgres
+npm run migrate
+npm start
+```
+
+Essa alternativa exige Node 24.19.0. `DATABASE_URL`, `VANE_NAMESPACE`, `PORT`
+e `HOST` configuram o processo local; o host padrão é `127.0.0.1`.
+Não execute a API local na mesma porta de uma API Docker já iniciada.
 
 ## Regras de comparação e compra
 
@@ -137,17 +148,57 @@ publicada, atualizar o lockfile e executar os testes deste exemplo novamente.
 
 ## Validar
 
-Com o PostgreSQL disponível e `.env` configurado:
+Para repetir a validação completa **somente com Docker e Bash**:
+
+```sh
+bash scripts/test-docker.sh
+```
+
+No Windows, execute no WSL2 com Docker Desktop integrado. Com Node instalado,
+`npm run test:docker` chama o mesmo script.
+
+A execução cria um projeto Compose temporário, sem publicar portas, com um banco
+e volume próprios. Não usa nem apaga o ambiente de desenvolvimento. Ao terminar,
+remove seus containers, sua rede e seu volume, inclusive quando um teste falha.
+
+O comando:
+
+1. Constrói a imagem e inicia a API e o PostgreSQL reais.
+2. Verifica o hash do Vane, tipos e build, e executa os 10 testes existentes.
+3. Executa [`test/docker.e2e.mjs`](test/docker.e2e.mjs) em outro container, chamando
+   somente a API HTTP, sem importar a aplicação nem acessar o banco.
+4. Testa cadastros, carrinho salvo, mercado mais barato, quantidades, ofertas
+   ausentes, entradas inválidas, compras concorrentes e fotografia dos preços.
+5. Derruba a API com **SIGKILL** e exige código de saída `137`. Após reiniciar,
+   confere carrinho, preços, compras, idempotência e execução de novos eventos.
+6. Recria os containers da API e do PostgreSQL preservando o volume, e repete
+   as verificações de recuperação.
+
+O teste de queda ocorre **depois de uma compra confirmada pela API**. Ele comprova
+recuperação de dados e idempotência persistidos; não simula uma interrupção no meio
+de uma transação de compra.
+
+O terminal deve terminar com `Docker E2E: PASS` e exit code `0`. Falhas retornam
+código diferente de zero. Os relatórios ficam no diretório mostrado ao final,
+em `artifacts/e2e/<execução>/`: resultados JSON, respostas HTTP, arquivos TAP,
+identificação do SIGKILL, recriação dos containers e logs de limpeza. `summary.json`
+só registra PASS quando todos os gates e a limpeza passaram.
+O CI executa esse mesmo comando e preserva os relatórios como artifact.
+
+Para usar os testes existentes com Node no host e `.env` configurado:
 
 ```sh
 npm run check
 ```
 
-O comando verifica o pacote, os tipos e o build, e executa testes de comparação
-e integração HTTP com Vane/PostgreSQL reais. A integração usa um schema temporário
-próprio e o remove ao terminar; não modifica o schema `shopping`.
-`npm run test:unit` executa somente os testes de comparação, sem banco.
-O GitHub Actions executa a mesma validação com PostgreSQL 16.15.
+A integração usa um schema temporário próprio e o remove ao terminar.
+`npm run test:unit` executa somente a comparação, sem banco.
+
+Se sua rede usa uma CA adicional para proxy HTTPS, defina `VANE_DOCKER_PROXY_CA`
+com o caminho do certificado antes de executar o script. O override
+[`compose.proxy.yml`](compose.proxy.yml) monta a CA apenas durante o build,
+sem copiá-la para a imagem e mantendo a verificação TLS. Em uma rede comum,
+essa configuração não é necessária.
 
 ## Limites do exemplo
 

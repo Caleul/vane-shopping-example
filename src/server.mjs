@@ -5,6 +5,7 @@ import { shoppingApp, ApiError } from "./app.mjs";
 
 export async function startServer({
   port = Number(process.env.PORT ?? 3000),
+  host = process.env.HOST ?? "127.0.0.1",
   databaseUrl = process.env.DATABASE_URL,
 } = {}) {
   const vane = await startVane(databaseUrl);
@@ -71,7 +72,7 @@ export async function startServer({
   try {
     await new Promise((resolve, reject) => {
       server.once("error", reject);
-      server.listen(port, "127.0.0.1", resolve);
+      server.listen(port, host, resolve);
     });
   } catch (error) {
     await vane.close();

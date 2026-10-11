@@ -1,0 +1,10 @@
+# Only needed for networks that require an additional trusted proxy CA.
+services:
+  api:
+    build:
+      context: .
+      secrets:
+        - proxy_ca
+secrets:
+  proxy_ca:
+    file: ${VANE_DOCKER_PROXY_CA}
