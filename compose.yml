@@ -1,0 +1,18 @@
+services:
+  postgres:
+    image: postgres:16.15
+    environment:
+      POSTGRES_USER: shopping
+      POSTGRES_PASSWORD: shopping
+      POSTGRES_DB: shopping
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - shopping-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shopping -d shopping"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+volumes:
+  shopping-data:

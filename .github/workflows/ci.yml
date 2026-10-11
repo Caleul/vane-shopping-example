@@ -1,0 +1,29 @@
+name: CI
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  shopping:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16.15
+        env:
+          POSTGRES_USER: shopping
+          POSTGRES_PASSWORD: shopping
+          POSTGRES_DB: shopping
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U shopping -d shopping"
+          --health-interval 2s --health-timeout 5s --health-retries 30
+    env:
+      DATABASE_URL: postgresql://shopping:shopping@127.0.0.1:5432/shopping
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run check
